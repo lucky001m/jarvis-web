@@ -1,0 +1,67 @@
+:root {
+  --bg: #05080d;
+  --bg-panel: #0a121a;
+  --cyan: #4fd8e8;
+  --cyan-soft: #7feffff2;
+  --amber: #ff9b4a;
+  --text: #dcf4ff;
+  --text-dim: #5f8a9c;
+  --line: rgba(79, 216, 232, 0.18);
+  --line-strong: rgba(79, 216, 232, 0.4);
+  --font-display: "Rajdhani", sans-serif;
+  --font-mono: "Space Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  overflow-x: hidden;
+}
+
+body {
+  background-image: radial-gradient(
+      ellipse 80% 60% at 50% 0%,
+      rgba(79, 216, 232, 0.08),
+      transparent 60%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(79, 216, 232, 0.025) 0px,
+      rgba(79, 216, 232, 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+::selection {
+  background: var(--cyan);
+  color: #05080d;
+}
+
+button {
+  font-family: var(--font-display);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
