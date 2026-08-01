@@ -207,3 +207,19 @@
 .warn {
   color: var(--amber);
 }
+
+.voiceSelect {
+  background: rgba(10, 18, 26, 0.8);
+  border: 1px solid var(--line-strong);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 3px 4px;
+  max-width: 120px;
+}
+
+.voiceSelect:focus {
+  outline: none;
+  border-color: var(--cyan);
+}

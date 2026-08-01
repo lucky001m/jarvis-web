@@ -15,6 +15,8 @@ export default function Home() {
   const [clock, setClock] = useState("");
   const [speechSupported, setSpeechSupported] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState("");
 
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -74,6 +76,64 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // cargar voces disponibles del sistema (se cargan de forma asíncrona en algunos navegadores)
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+
+    const loadVoices = () => {
+      const available = window.speechSynthesis.getVoices();
+      if (available.length === 0) return;
+      setVoices(available);
+
+      const saved = localStorage.getItem("jarvis-voice-uri");
+      if (saved && available.some((v) => v.voiceURI === saved)) {
+        setSelectedVoiceURI(saved);
+        return;
+      }
+
+      const esVoices = available.filter((v) => v.lang.startsWith("es"));
+      const pool = esVoices.length > 0 ? esVoices : available;
+      // preferimos voces neuronales/online (suenan mucho más naturales y graves)
+      // y nombres masculinos típicos en español (Windows/Edge/Chrome)
+      const maleNames = [
+        "álvaro",
+        "alvaro",
+        "pablo",
+        "jorge",
+        "diego",
+        "carlos",
+        "enrique",
+        "tomás",
+        "tomas",
+        "raúl",
+        "raul",
+        "male",
+        "hombre",
+      ];
+      const scored = [...pool].sort((a, b) => {
+        const score = (v: SpeechSynthesisVoice) => {
+          let s = 0;
+          const name = v.name.toLowerCase();
+          if (/natural|online|neural/.test(name)) s += 2;
+          if (maleNames.some((n) => name.includes(n))) s += 1;
+          return s;
+        };
+        return score(b) - score(a);
+      });
+      setSelectedVoiceURI(scored[0]?.voiceURI ?? "");
+    };
+
+    loadVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () =>
+      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+  }, []);
+
+  function onVoiceChange(uri: string) {
+    setSelectedVoiceURI(uri);
+    localStorage.setItem("jarvis-voice-uri", uri);
+  }
+
   useEffect(() => {
     transcriptRef.current?.scrollTo({
       top: transcriptRef.current.scrollHeight,
@@ -101,30 +161,25 @@ export default function Home() {
     }
   }
 
+  // el motor de voz en español no sabe leer "Jarvis" en inglés; lo sustituimos
+  // por una grafía que el sintetizador sí pronuncia bien (solo afecta al audio)
+  function applyPronunciationFixes(text: string) {
+    return text.replace(/jarvis/gi, "Yarvis");
+  }
+
   function speak(text: string) {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(applyPronunciationFixes(text));
     utterance.lang = "es-ES";
-    utterance.rate = 1.02;
-    utterance.pitch = 0.75;
+    utterance.rate = 0.95;
+    utterance.pitch = 0.8;
 
-    const voices = window.speechSynthesis.getVoices();
-    const esVoices = voices.filter((v) => v.lang.startsWith("es"));
-    // nombres típicos de voces masculinas en español (Windows/Edge/Chrome)
-    const maleNames = [
-      "pablo",
-      "jorge",
-      "diego",
-      "carlos",
-      "enrique",
-      "male",
-      "hombre",
-    ];
-    const maleVoice = esVoices.find((v) =>
-      maleNames.some((n) => v.name.toLowerCase().includes(n))
-    );
-    utterance.voice = maleVoice ?? esVoices[0] ?? null;
+    const voice = voices.find((v) => v.voiceURI === selectedVoiceURI);
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    }
 
     utterance.onstart = () => {
       setOrbState("speaking");
@@ -239,7 +294,33 @@ export default function Home() {
           </div>
           <div className={styles.statRow}>
             <span>Voz</span>
-            <span>{speechSupported ? "Activa" : "No disponible"}</span>
+            {voices.length > 0 ? (
+              <span style={{ display: "flex", gap: 4 }}>
+                <select
+                  className={styles.voiceSelect}
+                  value={selectedVoiceURI}
+                  onChange={(e) => onVoiceChange(e.target.value)}
+                  title="Elige la voz de Jarvis"
+                >
+                  {voices.map((v) => (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className={styles.iconBtn}
+                  style={{ padding: "0 8px", fontSize: 11 }}
+                  onClick={() => speak("Hola, soy Jarvis.")}
+                  title="Probar esta voz"
+                >
+                  ▶
+                </button>
+              </span>
+            ) : (
+              <span>{speechSupported ? "Activa" : "No disponible"}</span>
+            )}
           </div>
           <div className={styles.statRow}>
             <span>Turnos</span>
