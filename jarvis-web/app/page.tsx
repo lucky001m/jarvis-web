@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import JarvisOrb, { OrbState } from "./JarvisOrb";
 import styles from "./page.module.css";
+import { useMascaraBLE } from "./hooks/useMascaraBLE"
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -18,6 +19,8 @@ export default function Home() {
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const isListeningRef = useRef(false);
+
+  const { conectado: mascaraConectada, conectar: conectarMascara, enviarComando: enviarComandoMascara } = useMascaraBLE();
 
   // reloj HUD
   useEffect(() => {
@@ -139,6 +142,45 @@ export default function Home() {
     if (!trimmed) return;
 
     setErrorMsg("");
+
+    // --- Comandos de la máscara de Iron Man, se resuelven aquí sin pasar por Gemini ---
+    const texto = trimmed.toLowerCase();
+    const esAbrir = /(abre|abrir)\s+(la\s+)?(m[aá]scara|careta)/.test(texto);
+    const esCerrar = /(cierra|cerrar)\s+(la\s+)?(m[aá]scara|careta)/.test(texto);
+    const esMusica = /(pon|reproduce|suena)\s+(la\s+)?m[uú]sica/.test(texto);
+    const esParar = /(para|detener|apaga)\s+(la\s+)?m[uú]sica/.test(texto);
+
+    if (esAbrir || esCerrar || esMusica || esParar) {
+      const nextMessages: ChatMessage[] = [
+        ...messages,
+        { role: "user", content: trimmed },
+      ];
+      setMessages(nextMessages);
+      setInput("");
+
+      let respuesta = "";
+      if (!mascaraConectada) {
+        respuesta = "La máscara no está conectada por Bluetooth todavía.";
+      } else if (esAbrir) {
+        await enviarComandoMascara("ABRIR");
+        respuesta = "Abriendo la máscara.";
+      } else if (esCerrar) {
+        await enviarComandoMascara("CERRAR");
+        respuesta = "Cerrando la máscara.";
+      } else if (esMusica) {
+        await enviarComandoMascara("MUSICA 1");
+        respuesta = "Reproduciendo música.";
+      } else if (esParar) {
+        await enviarComandoMascara("PARAR");
+        respuesta = "Música detenida.";
+      }
+
+      setMessages((prev) => [...prev, { role: "assistant", content: respuesta }]);
+      speak(respuesta);
+      return; // no seguimos hacia Gemini
+    }
+    // --- fin comandos de la máscara ---
+
     const nextMessages: ChatMessage[] = [
       ...messages,
       { role: "user", content: trimmed },
@@ -202,6 +244,12 @@ export default function Home() {
           <div className={styles.statRow}>
             <span>Turnos</span>
             <span>{messages.length}</span>
+          </div>
+          <div className={styles.statRow}>
+            <span>Máscara</span>
+            <button onClick={conectarMascara} className={styles.iconBtn}>
+              {mascaraConectada ? "Conectada ✓" : "Conectar"}
+            </button>
           </div>
         </aside>
 
