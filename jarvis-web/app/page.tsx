@@ -17,10 +17,14 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState("");
+  const [voiceEngine, setVoiceEngine] = useState<"browser" | "elevenlabs">(
+    "browser"
+  );
 
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const isListeningRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { conectado: mascaraConectada, conectar: conectarMascara, enviarComando: enviarComandoMascara } = useMascaraBLE();
 
@@ -134,6 +138,19 @@ export default function Home() {
     localStorage.setItem("jarvis-voice-uri", uri);
   }
 
+  // recordar el motor de voz elegido (navegador vs. ElevenLabs)
+  useEffect(() => {
+    const saved = localStorage.getItem("jarvis-voice-engine");
+    if (saved === "elevenlabs" || saved === "browser") {
+      setVoiceEngine(saved);
+    }
+  }, []);
+
+  function onVoiceEngineChange(engine: "browser" | "elevenlabs") {
+    setVoiceEngine(engine);
+    localStorage.setItem("jarvis-voice-engine", engine);
+  }
+
   useEffect(() => {
     transcriptRef.current?.scrollTo({
       top: transcriptRef.current.scrollHeight,
@@ -161,13 +178,13 @@ export default function Home() {
     }
   }
 
-  // el motor de voz en español no sabe leer "Jarvis" en inglés; lo sustituimos
+  // el motor de voz del navegador no sabe leer "Jarvis" en inglés; lo sustituimos
   // por una grafía que el sintetizador sí pronuncia bien (solo afecta al audio)
   function applyPronunciationFixes(text: string) {
     return text.replace(/jarvis/gi, "Yarvis");
   }
 
-  function speak(text: string) {
+  function speakBrowser(text: string) {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(applyPronunciationFixes(text));
@@ -190,6 +207,56 @@ export default function Home() {
       setStateLabel("");
     };
     window.speechSynthesis.speak(utterance);
+  }
+
+  async function speakElevenLabs(text: string) {
+    audioRef.current?.pause();
+    setOrbState("thinking");
+    setStateLabel("generando voz");
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error generando la voz");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onplay = () => {
+        setOrbState("speaking");
+        setStateLabel("hablando");
+      };
+      audio.onended = () => {
+        setOrbState("idle");
+        setStateLabel("");
+        URL.revokeObjectURL(url);
+      };
+      audio.onerror = () => {
+        setOrbState("idle");
+        setStateLabel("");
+        URL.revokeObjectURL(url);
+      };
+      await audio.play();
+    } catch (err: any) {
+      setErrorMsg(err.message ?? "No se pudo generar la voz de ElevenLabs");
+      setOrbState("idle");
+      setStateLabel("");
+      // si falla ElevenLabs (sin clave, sin crédito...), seguimos oyendo a Jarvis igualmente
+      speakBrowser(text);
+    }
+  }
+
+  function speak(text: string) {
+    if (voiceEngine === "elevenlabs") {
+      speakElevenLabs(text);
+    } else {
+      speakBrowser(text);
+    }
   }
 
   async function handleSend(text: string) {
@@ -293,9 +360,34 @@ export default function Home() {
             <span>Claude</span>
           </div>
           <div className={styles.statRow}>
-            <span>Voz</span>
-            {voices.length > 0 ? (
-              <span style={{ display: "flex", gap: 4 }}>
+            <span>Motor voz</span>
+            <span style={{ display: "flex", gap: 4 }}>
+              <select
+                className={styles.voiceSelect}
+                value={voiceEngine}
+                onChange={(e) =>
+                  onVoiceEngineChange(e.target.value as "browser" | "elevenlabs")
+                }
+                title="Elige el motor de voz de Jarvis"
+              >
+                <option value="browser">Navegador</option>
+                <option value="elevenlabs">IA (ElevenLabs)</option>
+              </select>
+              <button
+                type="button"
+                className={styles.iconBtn}
+                style={{ padding: "0 8px", fontSize: 11 }}
+                onClick={() => speak("Hola, soy Jarvis.")}
+                title="Probar esta voz"
+              >
+                ▶
+              </button>
+            </span>
+          </div>
+          {voiceEngine === "browser" && (
+            <div className={styles.statRow}>
+              <span>Voz</span>
+              {voices.length > 0 ? (
                 <select
                   className={styles.voiceSelect}
                   value={selectedVoiceURI}
@@ -308,20 +400,11 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  className={styles.iconBtn}
-                  style={{ padding: "0 8px", fontSize: 11 }}
-                  onClick={() => speak("Hola, soy Jarvis.")}
-                  title="Probar esta voz"
-                >
-                  ▶
-                </button>
-              </span>
-            ) : (
-              <span>{speechSupported ? "Activa" : "No disponible"}</span>
-            )}
-          </div>
+              ) : (
+                <span>{speechSupported ? "Activa" : "No disponible"}</span>
+              )}
+            </div>
+          )}
           <div className={styles.statRow}>
             <span>Turnos</span>
             <span>{messages.length}</span>
