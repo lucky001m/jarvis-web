@@ -25,6 +25,7 @@ export default function Home() {
   const transcriptRef = useRef<HTMLDivElement>(null);
   const isListeningRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const handleSendRef = useRef<(text: string) => void>(() => {});
 
   const { conectado: mascaraConectada, conectar: conectarMascara, enviarComando: enviarComandoMascara } = useMascaraBLE();
 
@@ -61,7 +62,7 @@ export default function Home() {
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      handleSend(transcript);
+      handleSendRef.current(transcript);
     };
 
     recognition.onerror = () => {
@@ -335,6 +336,7 @@ export default function Home() {
       setStateLabel("");
     }
   }
+  handleSendRef.current = handleSend;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
