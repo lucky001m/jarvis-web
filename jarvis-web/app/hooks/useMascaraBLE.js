@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { BleClient, textToDataView } from '@capacitor-community/bluetooth-le';
 
 const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
 const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
@@ -8,34 +9,29 @@ const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
 export function useMascaraBLE() {
   const [conectado, setConectado] = useState(false);
   const [conectando, setConectando] = useState(false);
-  const characteristicRef = useRef(null);
+  const deviceIdRef = useRef(null);
 
-  // Solo se puede llamar desde un clic real del usuario (botón),
-  // el navegador lo exige por seguridad — no se puede disparar por voz.
+  // Solo se puede llamar desde un clic real del usuario (botón): iOS/Android
+  // exigen esa interacción para el diálogo de permiso/emparejamiento, igual
+  // que antes exigía el navegador para Web Bluetooth — no se puede disparar
+  // por voz.
   const conectar = useCallback(async () => {
-    if (!navigator.bluetooth) {
-      alert('Este navegador no soporta Web Bluetooth (usa Chrome o Edge)');
-      return false;
-    }
-
     setConectando(true);
     try {
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: [SERVICE_UUID] }],
+      // Idempotente: en iOS pide el permiso de Bluetooth la primera vez.
+      await BleClient.initialize();
+
+      const device = await BleClient.requestDevice({
+        services: [SERVICE_UUID],
       });
 
-      const server = await device.gatt.connect();
-      const service = await server.getPrimaryService(SERVICE_UUID);
-      const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-      characteristicRef.current = characteristic;
-      setConectado(true);
-
-      device.addEventListener('gattserverdisconnected', () => {
+      await BleClient.connect(device.deviceId, () => {
         setConectado(false);
-        characteristicRef.current = null;
+        deviceIdRef.current = null;
       });
 
+      deviceIdRef.current = device.deviceId;
+      setConectado(true);
       return true;
     } catch (err) {
       console.log('Error conectando a la máscara:', err);
@@ -47,13 +43,17 @@ export function useMascaraBLE() {
 
   // Esta sí se puede llamar desde código disparado por voz, una vez conectado
   const enviarComando = useCallback(async (texto) => {
-    if (!characteristicRef.current) {
+    if (!deviceIdRef.current) {
       console.log('Máscara no conectada, no se puede enviar:', texto);
       return false;
     }
     try {
-      const data = new TextEncoder().encode(texto);
-      await characteristicRef.current.writeValueWithoutResponse(data);
+      await BleClient.writeWithoutResponse(
+        deviceIdRef.current,
+        SERVICE_UUID,
+        CHARACTERISTIC_UUID,
+        textToDataView(texto)
+      );
       return true;
     } catch (err) {
       console.log('Error enviando comando a la máscara:', err);
