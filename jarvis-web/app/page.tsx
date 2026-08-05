@@ -271,7 +271,7 @@ export default function Home() {
     const esAbrir = /(abre|abrir)\s+(la\s+)?(m[aá]scara|careta)/.test(texto);
     const esCerrar = /(cierra|cerrar)\s+(la\s+)?(m[aá]scara|careta)/.test(texto);
     const esMusica = /(pon|reproduce|suena)\s+(la\s+)?m[uú]sica/.test(texto);
-    const esParar = /(para|detener|apaga)\s+(la\s+)?m[uú]sica/.test(texto);
+    const esParar = /^parar?$/.test(texto.trim()) || /(para|detener|apaga)\s+(la\s+)?m[uú]sica/.test(texto);
 
     if (esAbrir || esCerrar || esMusica || esParar) {
       const nextMessages: ChatMessage[] = [
