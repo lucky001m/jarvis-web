@@ -21,6 +21,8 @@ export default function Home() {
   const [voiceEngine, setVoiceEngine] = useState<"browser" | "elevenlabs">(
     "browser"
   );
+  // Debe coincidir con mp3.volume(20) del setup() en el Arduino de la máscara.
+  const [volumenMascara, setVolumenMascara] = useState(20);
 
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -271,10 +273,17 @@ export default function Home() {
     const texto = trimmed.toLowerCase();
     const esAbrir = /(abre|abrir)\s+(la\s+)?(m[aá]scara|careta)/.test(texto);
     const esCerrar = /(cierra|cerrar)\s+(la\s+)?(m[aá]scara|careta)/.test(texto);
-    const esMusica = /(pon|reproduce|suena)\s+(la\s+)?m[uú]sica/.test(texto);
-    const esParar = /^parar?$/.test(texto.trim()) || /(para|detener|apaga)\s+(la\s+)?m[uú]sica/.test(texto);
+    const esMusica =
+      /(pon(?:me)?|reproduc(?:e|ir)|toca|suena)\s+(la\s+)?(m[uú]sica|canci[oó]n)/.test(texto);
+    const esParar =
+      /^(para|parar|pausa|pausar|stop)$/.test(texto.trim()) ||
+      /(para|pausa|pausar|detener|deten|det[eé]n|apaga)\s+(la\s+)?(m[uú]sica|canci[oó]n)/.test(texto);
+    const esSubirVolumen =
+      /(sube|subir)\s+(el\s+)?volumen/.test(texto) || /m[aá]s\s+(alto|fuerte)/.test(texto);
+    const esBajarVolumen =
+      /(baja|bajar)\s+(el\s+)?volumen/.test(texto) || /m[aá]s\s+(bajo|flojo)/.test(texto);
 
-    if (esAbrir || esCerrar || esMusica || esParar) {
+    if (esAbrir || esCerrar || esMusica || esParar || esSubirVolumen || esBajarVolumen) {
       const nextMessages: ChatMessage[] = [
         ...messages,
         { role: "user", content: trimmed },
@@ -283,20 +292,41 @@ export default function Home() {
       setInput("");
 
       let respuesta = "";
+      let comando = "";
+      let mensajeExito = "";
+      let volumenPendiente: number | null = null;
       if (!mascaraConectada) {
         respuesta = "La máscara no está conectada por Bluetooth todavía.";
       } else if (esAbrir) {
-        await enviarComandoMascara("ABRIR");
-        respuesta = "Abriendo la máscara.";
+        comando = "ABRIR";
+        mensajeExito = "Abriendo la máscara.";
       } else if (esCerrar) {
-        await enviarComandoMascara("CERRAR");
-        respuesta = "Cerrando la máscara.";
+        comando = "CERRAR";
+        mensajeExito = "Cerrando la máscara.";
       } else if (esMusica) {
-        await enviarComandoMascara("MUSICA 1");
-        respuesta = "Reproduciendo música.";
+        comando = "MUSICA 1";
+        mensajeExito = "Reproduciendo música.";
       } else if (esParar) {
-        await enviarComandoMascara("PARAR");
-        respuesta = "Música detenida.";
+        comando = "PARAR";
+        mensajeExito = "Música detenida.";
+      } else if (esSubirVolumen || esBajarVolumen) {
+        const PASO_VOLUMEN = 4;
+        volumenPendiente = Math.max(
+          0,
+          Math.min(30, volumenMascara + (esSubirVolumen ? PASO_VOLUMEN : -PASO_VOLUMEN))
+        );
+        comando = `VOLUMEN ${volumenPendiente}`;
+        mensajeExito = esSubirVolumen ? "Subiendo el volumen." : "Bajando el volumen.";
+      }
+
+      if (comando) {
+        const ok = await enviarComandoMascara(comando);
+        if (ok) {
+          respuesta = mensajeExito;
+          if (volumenPendiente !== null) setVolumenMascara(volumenPendiente);
+        } else {
+          respuesta = "No he podido enviar el comando a la máscara. Comprueba la conexión Bluetooth.";
+        }
       }
 
       setMessages((prev) => [...prev, { role: "assistant", content: respuesta }]);
