@@ -1,21 +1,24 @@
 .page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  padding: 20px 24px 28px;
-  gap: 18px;
+  padding: clamp(12px, 3vh, 20px) clamp(14px, 5vw, 24px) clamp(12px, 3vh, 28px);
+  gap: clamp(10px, 2vh, 18px);
 }
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
+  gap: 6px 16px;
   border-bottom: 1px solid var(--line);
   padding-bottom: 12px;
 }
 
 .brand {
-  font-size: 22px;
+  font-size: clamp(16px, 5vw, 22px);
   font-weight: 700;
   letter-spacing: 0.18em;
   color: var(--cyan);
@@ -31,7 +34,7 @@
 
 .main {
   display: grid;
-  grid-template-columns: 200px 1fr 220px;
+  grid-template-columns: minmax(160px, 200px) 1fr minmax(180px, 220px);
   gap: 24px;
   align-items: start;
 }
@@ -40,8 +43,8 @@
   .main {
     grid-template-columns: 1fr;
   }
-  .sidePanel {
-    display: none;
+  .center {
+    order: -1;
   }
 }
 
@@ -78,8 +81,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 46px;
-  padding-top: 20px;
+  gap: clamp(20px, 6vw, 46px);
+  padding-top: clamp(8px, 3vh, 20px);
+  width: 100%;
+  min-width: 0;
 }
 
 .stateLabel {
@@ -95,7 +100,7 @@
 .transcript {
   width: 100%;
   max-width: 640px;
-  max-height: 260px;
+  max-height: min(260px, 32vh);
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -150,9 +155,14 @@
 
 .controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   width: 100%;
   max-width: 640px;
+}
+
+.controls .textInput {
+  min-width: 120px;
 }
 
 .textInput {
@@ -176,10 +186,11 @@
   border: 1px solid var(--line-strong);
   color: var(--cyan);
   border-radius: 4px;
-  padding: 0 18px;
+  padding: 0 clamp(10px, 3vw, 18px);
   font-size: 15px;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
 .iconBtn:hover {

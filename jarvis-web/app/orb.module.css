@@ -1,7 +1,7 @@
 .wrap {
   position: relative;
-  width: 260px;
-  height: 260px;
+  width: clamp(140px, 38vmin, 260px);
+  height: clamp(140px, 38vmin, 260px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,7 +174,7 @@
 /* --- barras de audio bajo la cara, solo al hablar --- */
 .bars {
   position: absolute;
-  bottom: -30px;
+  bottom: -12%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
