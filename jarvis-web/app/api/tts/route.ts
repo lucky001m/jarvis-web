@@ -1,5 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// La app nativa de iOS (Capacitor) llama a esta ruta desde otro origen
+// (capacitor://localhost), así que necesitamos cabeceras CORS para que
+// el WebView no bloquee la respuesta.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+function corsJson(data: unknown, init?: ResponseInit) {
+  return NextResponse.json(data, {
+    ...init,
+    headers: { ...CORS_HEADERS, ...init?.headers },
+  });
+}
+
 // Voz grave y calmada de la librería pública de ElevenLabs (no es una clonación
 // del actor de las películas, solo un estilo similar). Se puede cambiar poniendo
 // otro voice id en ELEVENLABS_VOICE_ID.
@@ -14,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const { text }: { text: string } = await req.json();
     if (!text?.trim()) {
-      return NextResponse.json({ error: "Falta texto" }, { status: 400 });
+      return corsJson({ error: "Falta texto" }, { status: 400 });
     }
 
     const voiceId = process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID;
@@ -45,11 +65,11 @@ export async function POST(req: NextRequest) {
 
     const audio = await res.arrayBuffer();
     return new NextResponse(audio, {
-      headers: { "Content-Type": "audio/mpeg" },
+      headers: { "Content-Type": "audio/mpeg", ...CORS_HEADERS },
     });
   } catch (err: any) {
     console.error("Error en /api/tts:", err);
-    return NextResponse.json(
+    return corsJson(
       { error: err?.message ?? "Error desconocido" },
       { status: 500 }
     );

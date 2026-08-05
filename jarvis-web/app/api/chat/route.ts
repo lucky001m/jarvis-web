@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// La app nativa de iOS (Capacitor) llama a esta ruta desde otro origen
+// (capacitor://localhost), así que necesitamos cabeceras CORS para que
+// el WebView no bloquee la respuesta. No hay sesión/cookies de por medio,
+// así que abrir el origen no cambia la superficie de exposición real.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+function corsJson(data: unknown, init?: ResponseInit) {
+  return NextResponse.json(data, {
+    ...init,
+    headers: { ...CORS_HEADERS, ...init?.headers },
+  });
+}
+
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -236,14 +257,14 @@ export async function POST(req: NextRequest) {
           `${lightIntent === "on" ? "enciende" : "apaga"} ${LIGHT_NAME}`
         );
         const reply = pick(lightIntent === "on" ? ON_PHRASES : OFF_PHRASES);
-        return NextResponse.json({ reply });
+        return corsJson({ reply });
       }
 
       // 2. Recordatorios — añadir
       const reminderText = detectReminderAdd(text);
       if (reminderText) {
         await addReminder(reminderText);
-        return NextResponse.json({
+        return corsJson({
           reply: `Anotado: ${reminderText}.`,
         });
       }
@@ -255,7 +276,7 @@ export async function POST(req: NextRequest) {
           items.length === 0
             ? "No tienes nada pendiente."
             : `Tienes pendiente: ${items.join(", ")}.`;
-        return NextResponse.json({ reply });
+        return corsJson({ reply });
       }
 
       // 4. Calendario — usa Gemini para extraer los datos del evento
@@ -265,12 +286,12 @@ export async function POST(req: NextRequest) {
         const cuando = event.time
           ? `el ${event.date} a las ${event.time}`
           : `el ${event.date}`;
-        return NextResponse.json({
+        return corsJson({
           reply: `Evento añadido: ${event.summary}, ${cuando}.`,
         });
       }
     } catch (err: any) {
-      return NextResponse.json(
+      return corsJson(
         { error: err?.message ?? "No se pudo completar la acción" },
         { status: 500 }
       );
@@ -278,10 +299,10 @@ export async function POST(req: NextRequest) {
 
     // 5. Conversación normal
     const reply = await askGemini(messages);
-    return NextResponse.json({ reply });
+    return corsJson({ reply });
   } catch (err: any) {
     console.error("Error en /api/chat:", err);
-    return NextResponse.json(
+    return corsJson(
       { error: err?.message ?? "Error desconocido" },
       { status: 500 }
     );

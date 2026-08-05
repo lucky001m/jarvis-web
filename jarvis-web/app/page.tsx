@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import JarvisOrb, { OrbState } from "./JarvisOrb";
 import styles from "./page.module.css";
 import { useMascaraBLE } from "./hooks/useMascaraBLE"
+import { API_BASE_URL } from "./config";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -215,7 +216,7 @@ export default function Home() {
     setOrbState("thinking");
     setStateLabel("generando voz");
     try {
-      const res = await fetch("/api/tts", {
+      const res = await fetch(`${API_BASE_URL}/api/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -314,7 +315,7 @@ export default function Home() {
     setStateLabel("procesando");
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: nextMessages }),

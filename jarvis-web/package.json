@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:capacitor": "node scripts/build-capacitor.js",
     "start": "next start",
     "lint": "next lint"
   },
